@@ -21,6 +21,11 @@ class YoSpellchecker:
 		self.optional	= {}
 		self.necessary	= {}
 
+		side		= r"[^\s\.\,\"\'\-\:\\\/\<\>\;\(\)\!\?\_\[\]]*"
+		center		= r"[е|Е]"
+
+		self.pattern	= side + center + side
+
 	#----auxilliary methods----
 
 	def __fix_case(self, left, right):
@@ -86,7 +91,7 @@ class YoSpellchecker:
 		Finds in buffer words, written with 'E' | 'e' letter
 		and replaces them in buffer, if it is necessary
 		"""
-		pattern	= self.buffer.re.compile(r"\S*[е|Е]\S*")
+		pattern	= self.buffer.re.compile(self.pattern)
 		matches	= self.buffer.re.findall(pattern)
 	
 		repl = set()
@@ -125,7 +130,7 @@ class YoSpellchecker:
 		Highlights them and gives user an option to correct
 		them one by one, or to correct them all at once
 		"""
-		pattern = self.buffer.re.compile(r"\S*[е|Е]\S*")
+		pattern = self.buffer.re.compile(self.pattern)
 		matches	= self.buffer.re.findall(pattern)
 
 		repl	= []

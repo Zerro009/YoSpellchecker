@@ -20,5 +20,5 @@ EOF
 endfunction
 nnoremap <Leader> :call g:CorrectYo() <CR>
 
-" Аблезгов еще еж
-" аблезгова Автомассажер
+" Аблезгов, еще еж.
+" аблезгова Автомассажер.
