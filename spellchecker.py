@@ -147,7 +147,7 @@ class YoSpellchecker:
 
 		msg	= "%d words with optional YO were found!"\
 				"You can choose which words to correct,"\
-				"or to correct them all at once!" % counter
+				"or to correct them all at once!"
 		choices	= "&Correct\n&All\n&Backwards\n&Forward\n&Exit"
 
 		pointer	= 0
@@ -156,7 +156,7 @@ class YoSpellchecker:
 		h_end	= start + len(repl[pointer].encode(self.buffer.encoding))
 		end	= start + len(repl[pointer])
 
-		action	= self.buffer.interactive(start, h_end, msg, choices, 0)
+		action	= self.buffer.interactive(start, h_end, msg % counter, choices, 0)
 		while action != 5:
 			if action == 1:
 				# correct one highlighted word
@@ -219,7 +219,7 @@ class YoSpellchecker:
 				break
 			if counter == 0:
 				break
-			action	= self.buffer.interactive(start, h_end, msg, choices, 0)
+			action	= self.buffer.interactive(start, h_end, msg % counter, choices, 0)
 		self.buffer.vim2py()
 
 def main():
