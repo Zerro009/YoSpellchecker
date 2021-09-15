@@ -24,7 +24,7 @@ class YoSpellchecker:
 		side		= r"[^\s\.\,\"\'\-\:\\\/\<\>\;\(\)\!\?\_\[\]]*"
 		center		= r"[е|Е]"
 
-		self.pattern	= side + center + side
+		self.pattern	= self.buffer.re.compile(side + center + side)
 
 	#----auxilliary methods----
 
@@ -65,6 +65,7 @@ class YoSpellchecker:
 		if os.path.isfile(self.yo_dat):
 			os.remove(self.yo_dat)
 
+		os.umask(000)
 		db		= shelve.open(self.yo_dat)
 		db["optional"]	= optional
 		db["necessary"]	= necessary
@@ -80,7 +81,7 @@ class YoSpellchecker:
 		try:
 			db = shelve.open(self.yo_dat)
 		except FileNotFoundError:
-			raise FileNotFoundError("")
+			raise FileNotFoundError(".dat file wasn't opened!")
 		self.optional	= db["optional"]
 		self.necessary	= db["necessary"]
 
@@ -92,17 +93,12 @@ class YoSpellchecker:
 		and replaces them in buffer, if it is necessary
 		"""
 		pattern	= self.buffer.re.compile(self.pattern)
-		matches	= self.buffer.re.findall(pattern)
-	
-		repl = set()
-		counter = 0
+		matches	= [i for i in self.buffer.re.finditer(pattern) \
+				if i.group().decode(self.buffer.encoding).lower() in self.necessary]
+		counter = len(matches)
 
-		for i in range(len(matches)):
-			if matches[i].lower() in self.necessary.keys():
-				repl.add(matches[i])
-				counter += 1
 
-		if counter == 0:
+		if not counter:
 			msg	= "No words, written without necessary YO were found!"
 			action	= self.buffer.interactive(None, None, msg, "&Ok", 0)
 			return
@@ -111,15 +107,13 @@ class YoSpellchecker:
 				"Do you want to correct them?" % counter
 		choices	= "&Yes\n&No"
 		action	= self.buffer.interactive(None, None, msg, choices, 1)
-		
+	
 		if action == 1:
 			for i in range(counter):
-				
-				word		= repl.pop()
+				word		= matches[i].group().decode()
 				replacement	= self.necessary[word.lower()]
 				replacement	= self.__fix_case(word, replacement)
-		
-				self.buffer.replace(word, replacement)
+				self.buffer[matches[i].start():matches[i].end()] = replacement.encode()
 		self.buffer.vim2py()
 
 	def optional_correction(self):
@@ -131,16 +125,11 @@ class YoSpellchecker:
 		them one by one, or to correct them all at once
 		"""
 		pattern = self.buffer.re.compile(self.pattern)
-		matches	= self.buffer.re.findall(pattern)
+		matches	= [i for i in self.buffer.re.finditer(pattern) \
+				if i.group().decode(self.buffer.encoding).lower() in self.optional]
+		counter	= len(matches)
 
-		repl	= []
-		for i in range(len(matches)):
-			if matches[i].lower() in self.optional.keys():
-				repl.append(matches[i])
-
-		counter	= len(repl)
-
-		if counter == 0:
+		if not counter:
 			msg	= "No words, written without optional YO were found!"
 			action	= self.buffer.interactive(None, None, msg, "&Ok", 0)
 			return
@@ -149,44 +138,41 @@ class YoSpellchecker:
 				"You can choose which words to correct,"\
 				"or to correct them all at once!"
 		choices	= "&Correct\n&All\n&Backwards\n&Forward\n&Exit"
-
 		pointer	= 0
 
-		start	= self.buffer.find(repl[pointer])
-		h_end	= start + len(repl[pointer].encode(self.buffer.encoding))
-		end	= start + len(repl[pointer])
+		start	= matches[0].start()
+		end	= matches[0].end()
 
-		action	= self.buffer.interactive(start, h_end, msg % counter, choices, 0)
+		action	= self.buffer.interactive(start, end, msg % counter, choices, 0)
 		while action != 5:
 			if action == 1:
 				# correct one highlighted word
-				word		= repl[pointer]
+				word		= matches[pointer].group().decode(self.buffer.encoding)
 				replacement	= self.optional[word.lower()]
 				replacement	= self.__fix_case(word, replacement)
 
 				self.buffer[start:end] = replacement
 
-				del repl[pointer]
+				del matches[pointer]
 
-				if pointer > len(repl) - 1:
+				if pointer > len(matches) - 1:
 					pointer = 0
 
 				counter -= 1
 
-				if repl == []:
+				if matches == []:
 					break
 
-				start	= self.buffer.find(repl[pointer])
-				h_end	= start + len(repl[pointer].encode(self.buffer.encoding))
-				end	= start + len(repl[pointer])
+				start		= matches[pointer].start()
+				end		= matches[pointer].end()
 			elif action == 2:
 				# correct all the words
 
-				for i in range(len(repl)):
-					start	= self.buffer.find(repl[i])
-					end	= start + len(repl[i])
+				for i in range(len(matches)):
+					start	= matches[i].start()
+					end	= matches[i].end()
+					word	= matches[i].group().decode(self.buffer.encoding)
 
-					word		= repl[i]
 					replacement	= self.optional[word.lower()]
 					replacement	= self.__fix_case(word, replacement)
 
@@ -198,36 +184,38 @@ class YoSpellchecker:
 				pointer -= 1
 
 				if pointer < 0:
-					pointer = len(repl) - 1
+					pointer = len(matches) - 1
 
-				start	= self.buffer.find(repl[pointer])
-				h_end	= start + len(repl[pointer].encode(self.buffer.encoding))
-				end	= start + len(repl[pointer])
+				start	= matches[pointer].start()
+				end	= matches[pointer].end()
 			elif action == 4:
 				# go to next word
 
 				pointer += 1
 
-				if pointer > len(repl) - 1:
+				if pointer > len(matches) - 1:
 					pointer = 0
 
-				start	= self.buffer.find(repl[pointer])
-				h_end	= start + len(repl[pointer].encode(self.buffer.encoding))
-				end	= start + len(repl[pointer])
+				start	= matches[pointer].start() 
+				end	= matches[pointer].end()
 			elif action == 5:
 				# cancel
 				break
 			if counter == 0:
 				break
-			action	= self.buffer.interactive(start, h_end, msg % counter, choices, 0)
+			action	= self.buffer.interactive(start, end, msg % counter, choices, 0)
 		self.buffer.vim2py()
 
 def main():
+	import re
+
 	path		= os.path.splitext(vim.eval("g:vim_yo_dict"))[0]
 	buf		= buffer.Buffer()
-
 	spellchecker	= YoSpellchecker(path, buf)
+
+	if not os.path.exists(spellchecker.yo_dat):
+		spellchecker.refresh_db()
+
 	spellchecker.read_db()
 	spellchecker.necessary_correction()
 	spellchecker.optional_correction()
-

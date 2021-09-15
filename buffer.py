@@ -25,7 +25,7 @@ NEWLINES = {
 #----AUXILLIARY FUNCS----
 
 def _true_offset(u_obj, offset, encoding, prev=(0,0)):
-	return len(u_obj[prev[0]:offset].encode(encoding) + prev[1])
+	return len(u_obj[prev[0]:offset].encode(encoding)) + prev[1]
 
 def _encode_if_u(obj, encoding):
 	if isinstance(obj, str):
@@ -65,7 +65,7 @@ class MatchObject:
 				self.pos	= _true_offset(mo.string, mo.pos, encoding)
 				self.endpos	= _true_offset(mo.string, mo.pos, encoding,
 							(mo.pos, self.pos))
-				self.string	= mo.string.encode(encoding)
+				self.string	= mo.string
 			else:
 				self.pos	= mo.pos
 				self.endpos	= mo.endpos
@@ -454,25 +454,14 @@ class Buffer:
 			value	= value.replace("\r\n", "\n")
 			value	= list(value)[::key.step]
 			value	= "".join(value)
+
 		if isinstance(value, str):
-			value = value.encode(self.encoding)
+			value		= value.encode(self.encoding)
 
-		line_b, col_b	= self.offset2LC(start)
-		line_e, col_e	= self.offset2LC(stop)
-		line_content	= vim.eval("getline(%i)" % line_b)
-		left		= line_content[:col_b - 1]
-
-		if line_b < line_e:
-			line_content = vim.eval("getline(%d)" % line_e)
-		elif line_b > line_e:
-			raise ValueError
-
-		right		= line_content[col_e - 1:]
-		self.text	= self.text[:start] + value.decode(self.encoding) + self.text[stop:]
-		value		= left + value.decode(self.encoding) + right
-		value		= re.split(r"\r\n?|\n", value)
-
-		self.buffer[line_b - 1: line_e] = value
+		self.text	= self.text.encode(self.encoding)[:start] + value +\
+					self.text.encode(self.encoding)[stop:]
+		self.text	= self.text.decode(self.encoding)
+		self.py2vim()
 
 	def __delitem__(self, key):
 		"""
@@ -484,7 +473,7 @@ class Buffer:
 		return self.text[key]
 
 	def __len__(self):
-		return len(self.text.encode(self.encoding))
+		return len(self.text)
 
 	def __contains__(self, item):
 		return item in self.text
@@ -501,8 +490,8 @@ class Buffer:
 							Int times
 		"""
 		if other == 0:
-			self.buffer[:] = ""
-			self.vim2py()
+			self.text = ""
+			self.py2vim()
 		else:
 			save = self.text
 			for i in range(other - 1):
@@ -573,8 +562,9 @@ class Buffer:
 		buffer[start:end]
 		"""
 		if isinstance(item, str):
-			item = item.encode(self.encoding)
-		return self.text.encode(self.encoding).count(item, *pos)
+			return self.text.count(item, *pos)
+		elif isinstance(item, bytes):
+			return self.text.encode(self.encoding).count(item, *pos)
 
 	def index(self, item, *pos):
 		"""
@@ -584,8 +574,9 @@ class Buffer:
 		not found
 		"""
 		if isinstance(item, str):
-			item = item.encode(self.encoding)
-		return self.text.encode(self.encoding).index(item, *pos)
+			return self.text.index(item, *pos)
+		elif isinstance(item, bytes):
+			return self.text.encode(self.encoding).index(item, *pos)
 
 	def find(self, item, *pos):
 		"""
@@ -596,8 +587,9 @@ class Buffer:
 		(START, END)
 		"""
 		if isinstance(item, str):
-			item = item.encode(self.encoding)
-		return self.text.encode(self.encoding).find(item, *pos)
+			return self.text.find(item, *pos)
+		elif isinstance(item, bytes):
+			return self.text.encode(self.encoding).find(item, *pos)
 
 	def rindex(self, item, *pos):
 		"""
@@ -607,8 +599,9 @@ class Buffer:
 		is not found
 		"""
 		if isinstance(item, str):
-			item = item.encode(self.encoding)
-		return self.text.encode(self.encoding).rindex(item, *pos)
+			return self.text.rindex(item, *pos)
+		elif isinstance(item, bytes):
+			return self.text.encode(self.encoding).rindex(item, *pos)
 
 	def rfind(self, item, *pos):
 		"""
@@ -617,7 +610,10 @@ class Buffer:
 		Returns the highest index in buffer where substring SUB is
 		found, such that SUB is contained within range (START, END)
 		"""
-		return self.text.encode(self.encoding).rfind(item.encode(self.encoding), *pos)
+		if isinstance(item, str):
+			return self.text.rfind(item, *pos)
+		elif isinstance(item, bytes):
+			return self.text.encode(self.encoding).rfind(item, *pos)
 
 	def endswith(self, suffix, *pos):
 		"""
@@ -626,7 +622,10 @@ class Buffer:
 		Returns True if the buffer ends with a specified SUFFIX
 		Returns False if not
 		"""
-		return self.text.encode(self.encoding).endswith(suffix.encode(self.encoding), *pos)
+		if isinstance(suffix, str):
+			return self.text.endswith(suffix, *pos)
+		elif isinstance(suffix, bytes):
+			return self.text.encode(self.encoding).endswith(suffix, *pos)
 
 	def startswith(self, prefix, *pos):
 		"""
@@ -635,7 +634,10 @@ class Buffer:
 		Returns True if the buffer starts with a specified PREFIX
 		Return False if not
 		"""
-		return self.text.encode(self.encoding).startswith(prefix.encode(self.encoding), *pos)
+		if isinstance(prefix, str):
+			return self.text.startswith(prefix, *pos)
+		elif isinstance(prefix, bytes):
+			return self.text.encode(self.encoding).startswith(prefix, *pos)
 
 	def isalnum(self):
 		"""
