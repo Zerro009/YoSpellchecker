@@ -16,7 +16,6 @@ class YoSpellchecker:
 
 		self.yo_path	= path
 		self.yo_txt	= path + ".txt"
-		self.yo_dat	= path + ".dat"
 
 		self.optional	= {}
 		self.necessary	= {}
@@ -43,12 +42,11 @@ class YoSpellchecker:
 		elif left.istitle():
 			return right.title()
 
-	def refresh_db(self):
+	def read_txt(self):
 		"""
 		Return:		None
 
-		Reads words from .txt dictionary and replaces old
-		.dat file with a new one
+		Reads words from .txt
 		"""
 		optional	= {}
 		necessary	= {}
@@ -61,29 +59,8 @@ class YoSpellchecker:
 					optional[i[2:].replace("ё", "е").strip()] = i[2:].strip()
 				else:
 					necessary[i.replace("ё", "е").strip()] = i.strip()
-
-		if os.path.isfile(self.yo_dat):
-			os.remove(self.yo_dat)
-
-		os.umask(000)
-		db		= shelve.open(self.yo_dat)
-		db["optional"]	= optional
-		db["necessary"]	= necessary
-		db.close()
-
-	def read_db(self):
-		"""
-		Return:		None
-
-		Reads .dat word database and puts data into
-		instance.optional and instance.necessary dictionaries
-		"""
-		try:
-			db = shelve.open(self.yo_dat)
-		except FileNotFoundError:
-			raise FileNotFoundError(".dat file wasn't opened!")
-		self.optional	= db["optional"]
-		self.necessary	= db["necessary"]
+		self.optional	= optional
+		self.necessary	= necessary
 
 	def necessary_correction(self):
 		"""
@@ -213,9 +190,7 @@ def main():
 	buf		= buffer.Buffer()
 	spellchecker	= YoSpellchecker(path, buf)
 
-	if not os.path.exists(spellchecker.yo_dat):
-		spellchecker.refresh_db()
+	spellchecker.read_txt()
 
-	spellchecker.read_db()
 	spellchecker.necessary_correction()
 	spellchecker.optional_correction()
