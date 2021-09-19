@@ -18,7 +18,4 @@ spellchecker.main()
 EOF
 
 endfunction
-nnoremap <Leader> :call g:CorrectYo() <CR>
-
-" Аблезгов, еще еж.
-" аблезгова Автомассажер.
+nnoremap <Leader>yo :call g:CorrectYo() <CR>

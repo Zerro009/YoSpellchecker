@@ -51,7 +51,7 @@ class YoSpellchecker:
 		optional	= {}
 		necessary	= {}
 
-		print("Refreshing database...")
+		print("Reading words from .txt file...")
 
 		with open(self.yo_txt, "r") as file:
 			for i in file.readlines():
@@ -111,16 +111,29 @@ class YoSpellchecker:
 			action	= self.buffer.interactive(None, None, msg, "&Ok", 0)
 			return
 
-		msg	= "%d words with optional YO were found!"\
-				"You can choose which words to correct,"\
-				"or to correct them all at once!"
+		msg	= "%d word out of %d left."\
+				" You can choose which words to correct,"\
+				" or to correct them all at once!"
 		choices	= "&Correct\n&All\n&Backwards\n&Forward\n&Exit"
-		pointer	= 0
 
-		start	= matches[0].start()
-		end	= matches[0].end()
+		entry		= self.buffer.tell()
+		closest		= matches[0]
+		closest_pointer	= 0
+		pointer		= 0
 
-		action	= self.buffer.interactive(start, end, msg % counter, choices, 0)
+		warning		= "You have went through all the file %s!"
+
+		for i in range(counter):
+			if abs(entry - matches[i].start()) < entry - closest.start():
+				closest		= matches[i]
+				closest_pointer	= i
+				pointer 	= i
+
+		direction	= 0
+		start		= matches[pointer].start()
+		end		= matches[pointer].end()
+
+		action	= self.buffer.interactive(start, end, msg % (pointer + 1, counter), choices, 0)
 		while action != 5:
 			if action == 1:
 				# correct one highlighted word
@@ -135,7 +148,9 @@ class YoSpellchecker:
 				if pointer > len(matches) - 1:
 					pointer = 0
 
-				counter -= 1
+				if closest_pointer == counter - 1:
+					closest_pointer -= 1
+				counter 	-= 1
 
 				if matches == []:
 					break
@@ -157,31 +172,46 @@ class YoSpellchecker:
 				counter = 0
 			elif action == 3:
 				# go to previous word
+				if direction == -1 and pointer == closest_pointer and counter != 1:
+					self.buffer.interactive(matches[pointer].start(),\
+								matches[pointer].end(),\
+						 		warning % "backwards",\
+								"&Ok", 1)
+				else:
+					pointer -= 1
 
-				pointer -= 1
+					if pointer < 0:
+						pointer = len(matches) - 1
 
-				if pointer < 0:
-					pointer = len(matches) - 1
-
-				start	= matches[pointer].start()
-				end	= matches[pointer].end()
+					start	= matches[pointer].start()
+					end	= matches[pointer].end()
+				if pointer == closest_pointer and direction > -1:
+					direction -= 1
 			elif action == 4:
 				# go to next word
+				if direction == 1 and pointer % counter == closest_pointer and counter != 1:
+					self.buffer.interactive(matches[pointer].start(),\
+								matches[pointer].end(),\
+								warning % "forward",\
+								"&Ok", 1)
+				else:
+					pointer += 1
 
-				pointer += 1
+					if pointer > len(matches) - 1:
+						pointer = 0
 
-				if pointer > len(matches) - 1:
-					pointer = 0
-
-				start	= matches[pointer].start() 
-				end	= matches[pointer].end()
+					start	= matches[pointer].start() 
+					end	= matches[pointer].end()
+				if pointer == closest_pointer and direction < 1:
+					direction += 1
 			elif action == 5:
 				# cancel
 				break
 			if counter == 0:
 				break
-			action	= self.buffer.interactive(start, end, msg % counter, choices, 0)
+			action	= self.buffer.interactive(start, end, msg % (pointer + 1,counter), choices, 0)
 		self.buffer.vim2py()
+		self.buffer.seek(entry)
 
 def main():
 	import re
